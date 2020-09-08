@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import csv
 import json
+import re
 
 url = 'https://play.google.com/store/search?q=adblock%20for%20samsung&c=apps&hl=en'
 # Создать отдельную функцию которая получает всю инфу, и в нее поместить этот массив
@@ -25,19 +26,19 @@ def get_data(html, product_url):
     name = soup.find('main', class_='LXrl4c').find('h1', class_='AHFaub').find('span').text
     url = product_url
     company = soup.find('a', class_='hrTbp R8zArc').text
-   # installs = soup.find('div', class_='IQ1z0d').find('span', class_='htlgb')
     reviews = soup.find('span', class_='AYi5wd TBRnV').find('span').text
     rating = soup.find('div', class_='BHMmbe').text
     #mail Возможно его нет
-    #website = soup.find('span', class_='htlgb').find('div').find('a', class_='hrTbp')
 
     pool = soup.find_all('div', class_='W4P4ne')
-    add_info = pool[3].find_all('div', class_='IQ1z0d')
+    add_info = pool[3].find_all('div', class_='hAyfc')
     installs = add_info[3].find('span', class_='htlgb').text
-    website = add_info[11].find('span', class_='htlgb').find('a', class_='hrTbp')
-    print(website)
-
-    link = website.get('href')
+    website = 'there is no website'
+    for item in add_info:
+        if item.find('a', text=re.compile("Visit website")):
+            website = item.find('a', class_='hrTbp').get('href')
+        if item.find('div', text=re.compile("Installs")):
+            installs = item.find('div', class_='IQ1z0d').find('span').text
 
     data_dic = {"name": name,
                 "url": url,
@@ -46,7 +47,7 @@ def get_data(html, product_url):
                 "reviews": reviews,
                 "rating": rating,
   #              "mail": mail,
-                "website": link}
+                "website": website}
     return data_dic
 
 
@@ -69,8 +70,9 @@ main_html = get_html(url)
 # Находим ссылки на карточки товаров
 urls = get_urls(main_html)
 # Открываем в новом запросе (цикл)
-product_page = get_html(urls[0])
+for url in urls:
+    product_page = get_html(url)
 # Берем всю инфу
-data = get_data(product_page, urls[0])
+    data = get_data(product_page, url)
 # Парсим ее в файл
-csv_read(data)
+    csv_read(data)
