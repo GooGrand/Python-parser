@@ -23,16 +23,26 @@ def get_urls(html):
 
 def get_data(html, product_url):
     soup = BeautifulSoup(html, 'lxml')
+    if 'html' in locals():
+        print('html exists ' + product_url)
     name = soup.find('main', class_='LXrl4c').find('h1', class_='AHFaub').find('span').text
+    name = name.encode('utf-8')
     url = product_url
     company = soup.find('a', class_='hrTbp R8zArc').text
-    reviews = soup.find('span', class_='AYi5wd TBRnV').find('span').text
-    rating = soup.find('div', class_='BHMmbe').text
+    reviews = 'there are no reviews yet'
+    rating = 'there are no rating'
+    if soup.find('span', class_='EymY4b') != None:
+        reviews_span = soup.find('span', class_='EymY4b').find_all('span')
+        reviews = reviews_span[1].text
+    if soup.find('div', class_='BHMmbe') != None:
+        rating = soup.find('div', class_='BHMmbe').text
     #mail Возможно его нет
 
     pool = soup.find_all('div', class_='W4P4ne')
-    add_info = pool[3].find_all('div', class_='hAyfc')
-    installs = add_info[3].find('span', class_='htlgb').text
+    for info in pool:
+        if info.find_all('div', class_='hAyfc') != None:
+            add_info = info.find_all('div', class_='hAyfc')
+    #installs = add_info[3].find('span', class_='htlgb').text
     website = 'there is no website'
     for item in add_info:
         if item.find('a', text=re.compile("Visit website")):
