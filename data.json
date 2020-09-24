@@ -1,0 +1,31 @@
+{
+   "URLS":[
+      {
+         "URL":"https://play.google.com/store/search?q=asdasd&c=apps&hl=en",
+         "Headers":{
+            "Connection":"keep-alive",
+            "User-Agent":"Mozilla\/5.0 (Macintosh; Intel Mac OS X 10.15; rv:71.0) Gecko/20100101 Firefox/71.0",
+            "Upgrade-Insecure-Requests":"1"
+         },
+         "userId":"ID-1"
+      },
+      {
+         "URL":"https://play.google.com/store/search?q=gta&c=apps&hl=en",
+         "Headers":{
+            "Connection":"keep-alive",
+            "User-Agent":"Mozilla\/5.0 (Macintosh; Intel Mac OS X 10.15; rv:71.0) Gecko/20100101 Firefox/71.0",
+            "Upgrade-Insecure-Requests":"1"
+         },
+         "userId":"ID-2"
+      },
+      {
+         "URL":"https://play.google.com/store/search?q=afr&c=apps&hl=en",
+         "Headers":{
+            "Connection":"keep-alive",
+            "User-Agent":"Mozilla\/5.0 (Macintosh; Intel Mac OS X 10.15; rv:71.0) Gecko/20100101 Firefox/71.0",
+            "Upgrade-Insecure-Requests":"1"
+         },
+         "userId":"ID-3"
+      }
+   ]
+}

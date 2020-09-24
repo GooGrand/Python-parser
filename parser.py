@@ -23,7 +23,7 @@ with open("data_parse.csv", 'a', encoding="latin1", newline='') as file:
     writer = csv.DictWriter(file, fields)
     writer.writeheader()
 
-def get_page_by_selenium(link):
+def get_page_by_selenium(link, multi_product = True):
     opts = Options()
     opts.headless = True
     webdriver.DesiredCapabilities.CHROME['proxy'] = {
@@ -38,25 +38,32 @@ def get_page_by_selenium(link):
         driver.get(link)
         print('opening browser')
         i = 0
-        while i < 8:
-            print('scrolling down')
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(3)
-            i += 1
+        if multi_product:
+            while i < 8:
+                print('scrolling down')
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(3)
+                i += 1
     # driver.refresh()
         html = driver.page_source
         driver.close()
     return html
 
-
-
 def check_platform(url):
     parts = url.split('/')
     if parts[2] == 'play.google.com':
-        return 'google'
+        return 'googleplay'
     elif parts[2] == 'apps.apple.com':
         return 'apple'
-    pass
+    elif parts[2] == 'chrome.google.com':
+        if parts[4] == 'search':
+            return 'extsearch'
+        elif parts[4] == 'category':
+            return 'extcatrgory'
+        else:
+            return 'Incorrect extension url'
+    else:
+        return 'Incorrect url. It must be Google Play, Apple store or Google Extensions'
 
 def prepare_data(links):                # Подготавливает url для запроса на proxy parser
     print('Packing data')
@@ -130,8 +137,30 @@ def get_urls_google_play(html):
             product_urls.append(link)
     return product_urls
 
+def get_ext_search_urls(html):
+    product_urls = []
+    soup = BeautifulSoup(html, 'html5lib')
+    more_ext = soup.find('a', class_='a-K-o-y a-d-zc')
+    more_ext = more_ext.get('href')
+    new_html = get_page_by_selenium(more_ext)
+    soup = BeautifulSoup(new_html, 'html5lib')
+    a_tags = soup.find_all('a', class_='h-Ja-d-Ac a-u')
+    for tag in a_tags:
+        link = tag.get('href')
+        product_urls.append(link)
+    return products_urls
 
-def get_product_data(url, urls):
+
+def get_ext_category_urls(html):
+    product_urls = []
+    soup = BeautifulSoup(html, 'html5lib')
+    urls_tags = soup.find_all('a', class_='a-u')
+    for tag in urls_tags:
+        link = tag.get('href')
+        product_urls.append(link)
+    return product_urls
+
+def get_product_data(url, urls, platform):
     global exceptions
     product_links = get_html_links(url, urls)
     index = 0
@@ -139,7 +168,11 @@ def get_product_data(url, urls):
         product_html = get_html(product['link'])
         print(product)
         try:
-            data = get_data(product_html, product['url'])
+            if platform == 'googleplay':
+                data = get_data_play(product_html, product['url'])
+            if platform == 'extsearch' or platform == 'extcategory':
+                data = get_data_extensions(product_html, product['url'])
+
             index += 1
             csv_read(data)
         except BaseException as e:
@@ -150,8 +183,40 @@ def get_product_data(url, urls):
         print('While the parsing error happened. Trying to reload some of the html')
         return get_product_data(url, exceptions)
 
+def get_data_extensions(html, product_url):
+    soup = BeautifulSoup(html, 'html5lib')
+    soup.encode('latin1')
+    if 'html' in locals():
+        print('html exists ' + product_url)
+    name = soup.find('h1', class_='e-f-w').text
+    url = product_url
+    company = soup.find('span', class_='e-f-Me').find('span', class_='oc').text
+    reviews = 'there are no reviews yet'
+    rating = 'there are no rating'
+    installs = 'no information about installs'
+    website = 'there is no website'
+    if soup.find('span', class_='e-f-ih') != None:
+        installs = soup.find('span', class_='e-f-ih').text
+    if soup.find('span', class_='e-f-yb-w').find('div', class_='nAtiRe') != None:
+        reviews = soup.find('span', class_='e-f-yb-w').find('div', class_='nAtiRe').text
+    if soup.find('span', class_='e-f-yb-w').find('div', class_='Y89Uic') != None:
+        rating_span = soup.find('span', class_='e-f-yb-w').find('div', class_='Y89Uic')
+        rating = rating_span.get('title')
+    if soup.find('a', class_='C-b-p-D-u-y h-C-b-p-D-xd-y f4vLXe') != None:
+        website_span = soup.find('a', class_='C-b-p-D-u-y h-C-b-p-D-xd-y f4vLXe')
+        website = website_span.get('href')
 
-def get_data(html, product_url):
+    data_dic = {"name": name,
+                "url": url,
+                "company": company,
+                "installs": installs,
+                "reviews": reviews,
+                "rating": rating,
+                #"mail": mail,
+                "website": website}
+    return data_dic
+
+def get_data_play(html, product_url):
     soup = BeautifulSoup(html, 'html5lib')
     soup.encode('latin1')
     if 'html' in locals():
@@ -201,32 +266,20 @@ def csv_read(data):
         writer.writerow(data)
 
 def parse_pages(url, request):
-    # links = get_html_links(url, request)
-    # for link in links.values():
-    #     print(link['link'])
-    #     html = get_html(link['link'])
     for link in request:
         platform = check_platform(link)
-        if platform == 'google':
-            html = get_page_by_selenium(link)
+        html = get_page_by_selenium(link)
+        if platform == 'googleplay':
             urls = get_urls_google_play(html)
-            print("Final urls are " + str(urls))
-            get_product_data(url, urls)
-            # urls = get_urls_google_play(html)
-            # print("Final urls are " + str(urls))
-            # product_links = get_html_links(url, urls)
-            # index = 0
-            # for product in product_links:
-                # product_html = get_html(product)
-                # print(product)
-                # data = get_data(product_html, urls[index])
-                # index += 1
-                # csv_read(data)
         elif platform == 'apple':
-            urls = get_url_app_store(html)
-            print("Final urls are " + str(urls))
+            pass
+        elif platform == 'extsearch':
+            urls = get_ext_search_urls(html)
+        elif platform == 'extcategory':
+            urls = get_ext_category_urls(html)
         else:
             print(platform)
+        get_product_data(url, urls, platform)
         print('these links didn\' connected' + str(pages))
 
 parse_pages(url, links_request)
