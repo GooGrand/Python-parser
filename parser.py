@@ -16,7 +16,7 @@ PROXY = "23.23.23.23:3128"
 exceptions = []
 url = 'http://185.130.105.123:5053/'    # URL для парсинга
 pages = []                              # Обработка ошибок при загрузке с Proxy
-links_request = ["https://play.google.com/store/search?q=asdasd&c=apps&hl=en", "https://play.google.com/store/search?q=gta&c=apps&hl=en", "https://play.google.com/store/search?q=afr&c=apps&hl=en"]
+links_request = ["https://chrome.google.com/webstore/category/collection/wfh", "https://chrome.google.com/webstore/search/adblock", "https://play.google.com/store/search?q=afr&c=apps&hl=en"]
 
 with open("data_parse.csv", 'a', encoding="latin1", newline='') as file:
     fields = ['name', 'url', 'company', 'installs', 'reviews', 'rating', 'website']
@@ -45,6 +45,8 @@ def get_page_by_selenium(link, multi_product = True):
                 time.sleep(3)
                 i += 1
     # driver.refresh()
+        else:
+            time.sleep(4)
         html = driver.page_source
         driver.close()
     return html
@@ -59,7 +61,7 @@ def check_platform(url):
         if parts[4] == 'search':
             return 'extsearch'
         elif parts[4] == 'category':
-            return 'extcatrgory'
+            return 'extcategory'
         else:
             return 'Incorrect extension url'
     else:
@@ -100,14 +102,14 @@ def get_html_links(url, dataset):                         # Обрабатыва
     index = 0
     print(str(r))
     for key in r:
-        if r[key]['status'] == 996:
-            print('Cannot get one of the html\'s, trying again')
-            pages.append(dataset[index])
-        if r[key]['link'] != '':
+        if r[key]['link'] != '' and r[key]['status'] == 200:
             url = { 'link': r[key]['link'],
                     'url': dataset[index]
                      }
             urls[key] = url
+        else:
+            print('Cannot get one of the html\'s, trying again')
+            exceptions.append(dataset[index])
         index += 1
     print('URL\'s are ' + str(urls))
     return urls
@@ -150,7 +152,6 @@ def get_ext_search_urls(html):
         product_urls.append(link)
     return products_urls
 
-
 def get_ext_category_urls(html):
     product_urls = []
     soup = BeautifulSoup(html, 'html5lib')
@@ -172,7 +173,8 @@ def get_product_data(url, urls, platform):
                 data = get_data_play(product_html, product['url'])
             if platform == 'extsearch' or platform == 'extcategory':
                 data = get_data_extensions(product_html, product['url'])
-
+            else:
+                return print('Something wrong with the url')
             index += 1
             csv_read(data)
         except BaseException as e:
@@ -181,26 +183,33 @@ def get_product_data(url, urls, platform):
             print('The exceptions happened with this url ' + str(product['link']))
     if len(exceptions) != 0:
         print('While the parsing error happened. Trying to reload some of the html')
-        return get_product_data(url, exceptions)
+        bad_connected = exceptions
+        exceptions = []
+        return get_product_data(url, bad_connected, platform)
 
 def get_data_extensions(html, product_url):
     soup = BeautifulSoup(html, 'html5lib')
     soup.encode('latin1')
     if 'html' in locals():
         print('html exists ' + product_url)
-    name = soup.find('h1', class_='e-f-w').text
-    url = product_url
-    company = soup.find('span', class_='e-f-Me').find('span', class_='oc').text
+    website = 'there is no website'
     reviews = 'there are no reviews yet'
     rating = 'there are no rating'
     installs = 'no information about installs'
-    website = 'there is no website'
+    name = soup.find('h1', class_='e-f-w').text
+    url = product_url
+    if soup.find('span', class_='e-f-Me') != None:
+        company = soup.find('span', class_='e-f-Me').text
+    else:
+        company_link = soup.find('div', class_='e-f-Me e-f-Xi-oc').find('a', class_='e-f-y')
+        company = company_link.get('href')
+        website = company
     if soup.find('span', class_='e-f-ih') != None:
         installs = soup.find('span', class_='e-f-ih').text
-    if soup.find('span', class_='e-f-yb-w').find('div', class_='nAtiRe') != None:
-        reviews = soup.find('span', class_='e-f-yb-w').find('div', class_='nAtiRe').text
-    if soup.find('span', class_='e-f-yb-w').find('div', class_='Y89Uic') != None:
-        rating_span = soup.find('span', class_='e-f-yb-w').find('div', class_='Y89Uic')
+    if soup.find('span', class_='bhAbjd') != None:
+        reviews = soup.find('span', class_='bhAbjd').text
+    if soup.find('div', class_='rsw-stars') != None:
+        rating_span = soup.find('div', class_='rsw-stars')
         rating = rating_span.get('title')
     if soup.find('a', class_='C-b-p-D-u-y h-C-b-p-D-xd-y f4vLXe') != None:
         website_span = soup.find('a', class_='C-b-p-D-u-y h-C-b-p-D-xd-y f4vLXe')
@@ -257,7 +266,6 @@ def get_data_play(html, product_url):
                 "website": website}
     return data_dic
 
-
 def csv_read(data):
     with open("data_parse.csv", 'a', encoding='latin1', newline='') as file:
         fields = ['name', 'url', 'company', 'installs', 'reviews', 'rating', 'website']
@@ -268,14 +276,17 @@ def csv_read(data):
 def parse_pages(url, request):
     for link in request:
         platform = check_platform(link)
-        html = get_page_by_selenium(link)
+        print('platform is ' + str(platform))
         if platform == 'googleplay':
+            html = get_page_by_selenium(link)
             urls = get_urls_google_play(html)
         elif platform == 'apple':
             pass
         elif platform == 'extsearch':
+            html = get_page_by_selenium(link, False)
             urls = get_ext_search_urls(html)
         elif platform == 'extcategory':
+            html = get_page_by_selenium(link)
             urls = get_ext_category_urls(html)
         else:
             print(platform)
